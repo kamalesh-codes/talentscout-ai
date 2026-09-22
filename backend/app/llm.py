@@ -35,7 +35,13 @@ def provider_status() -> dict[str, Any]:
     }
 
 
-def generate(model: str, prompt: str, system: str = "", temperature: float = 0.2) -> str:
+def generate(
+    model: str,
+    prompt: str,
+    system: str = "",
+    temperature: float = 0.2,
+    json_mode: bool = False,
+) -> str:
     payload: dict[str, Any] = {
         "model": model,
         "prompt": prompt,
@@ -44,6 +50,8 @@ def generate(model: str, prompt: str, system: str = "", temperature: float = 0.2
     }
     if system:
         payload["system"] = system
+    if json_mode:
+        payload["format"] = "json"
     try:
         response = httpx.post(
             f"{OLLAMA_URL}/api/generate", json=payload, timeout=LLM_TIMEOUT_SECONDS
@@ -77,5 +85,25 @@ def parse_json(text: str) -> Any:
     raise ValueError("Model response did not contain valid JSON")
 
 
-def generate_json(model: str, prompt: str, system: str = "", temperature: float = 0.1) -> Any:
-    return parse_json(generate(model, prompt, system=system, temperature=temperature))
+def generate_json(
+    model: str, prompt: str, system: str = "", temperature: float = 0.1, attempts: int = 2
+) -> Any:
+    """Generate and parse JSON, retrying with Ollama's grammar-constrained JSON mode.
+
+    Reasoning models emit prose around their JSON, so the first attempt stays free-form
+    (their <think> blocks are stripped) and the retry constrains decoding to JSON.
+    """
+    last_error: ValueError | None = None
+    for attempt in range(attempts):
+        raw = generate(
+            model,
+            prompt,
+            system=system,
+            temperature=temperature,
+            json_mode=attempt > 0,
+        )
+        try:
+            return parse_json(raw)
+        except ValueError as exc:
+            last_error = exc
+    raise last_error or ValueError("Model response did not contain valid JSON")

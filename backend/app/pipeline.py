@@ -42,15 +42,38 @@ def extract_criteria(job_description: str, filters: SearchFilters) -> HiringCrit
     return criteria
 
 
+def fallback_queries(criteria: HiringCriteria, count: int) -> list[str]:
+    """Deterministic person-targeted queries used when the agent returns nothing usable."""
+    skills = (criteria.must_have_skills or criteria.preferred_skills)[:3]
+    skill_text = " ".join(skills)
+    role = criteria.role_title or "software engineer"
+    location = criteria.location_constraints[0] if criteria.location_constraints else ""
+    candidates = [
+        f'site:github.com {skill_text} developer',
+        f'site:github.io {skill_text} portfolio',
+        f'"{role}" portfolio {skill_text}',
+        f'site:medium.com "{role}" {skills[0] if skills else role}',
+        f'"{role}" personal site resume {skill_text}',
+        f'site:linkedin.com/in "{role}" {skill_text} {location}',
+    ]
+    return [" ".join(query.split()) for query in candidates][:count]
+
+
 def build_queries(criteria: HiringCriteria, count: int = 6) -> list[str]:
-    data = generate_json(
-        AGENT_MODEL,
-        prompts.QUERY_PROMPT.format(count=count, criteria=criteria.model_dump_json(indent=2)),
-        system=prompts.AGENT_SYSTEM,
-        temperature=0.4,
-    )
+    try:
+        data = generate_json(
+            AGENT_MODEL,
+            prompts.QUERY_PROMPT.format(count=count, criteria=criteria.model_dump_json(indent=2)),
+            system=prompts.AGENT_SYSTEM,
+            temperature=0.4,
+        )
+    except ValueError:
+        data = {}
     queries = data.get("queries", []) if isinstance(data, dict) else data
-    return [query for query in queries if isinstance(query, str) and query.strip()][:count]
+    if not isinstance(queries, list):
+        queries = []
+    cleaned = [query for query in queries if isinstance(query, str) and query.strip()][:count]
+    return cleaned or fallback_queries(criteria, count)
 
 
 def _cluster_key(result: dict[str, str]) -> str:
