@@ -89,8 +89,12 @@ def gather_evidence(key: str, hits: list[dict[str, str]]) -> dict[str, Any]:
             evidence["github"] = enriched
         else:
             evidence["notes"].append(
-                f"GitHub public API data unavailable for {login} (rate limit or private/missing account)."
+                f"GitHub public API data unavailable for {login} (rate limit or private/missing account); "
+                "falling back to the public profile page."
             )
+            page = fetcher.fetch_page(f"https://github.com/{login}")
+            if page["status"] == "ok" and page["text"]:
+                evidence["pages"].append(page)
 
     pages_fetched = 0
     for hit in hits:
@@ -241,7 +245,7 @@ def run_search(run_id: str) -> None:
                 continue
 
             fingerprint = (profile.get("name", "") or key).strip().lower()
-            if fingerprint in seen_names:
+            if fingerprint in seen_names or fingerprint in ("", "unknown"):
                 continue
             seen_names.add(fingerprint)
 

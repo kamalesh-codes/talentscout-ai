@@ -54,9 +54,17 @@ JOB DESCRIPTION:
 QUERY_PROMPT = """Create {count} diversified DuckDuckGo search queries to find public evidence of \
 candidates matching these hiring criteria.
 
-Mix these angles: must-have skills, adjacent job titles, project keywords, domain keywords, and \
-location. Target GitHub profiles, personal portfolio sites, technical blogs, and public \
+Search for PEOPLE, never for job postings. Every query must target an individual engineer's public \
+footprint: GitHub profiles and repositories, personal portfolio sites, technical blogs, and public \
 professional-profile result links.
+
+Mix these angles across the queries: must-have skills, adjacent job titles, project keywords, \
+domain keywords, and location. Use search operators where they help, for example \
+`site:github.com "fastapi" developer`, `"personal site" python engineer portfolio`, \
+`site:medium.com postgresql engineer`.
+
+Never phrase a query like a vacancy ("we are hiring", "apply now", "job description", salary or \
+benefits wording) — those return job boards, not candidates.
 
 Return valid JSON only: {{"queries": ["...", "..."]}}
 
